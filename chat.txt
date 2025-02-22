@@ -1,2 +1,151 @@
+Sub Globals
+    Dim ScrollView1 As ScrollView
+    Dim Panel1 As Panel
+    Dim ItemWidth As Int = 150dip ' Width of each grid item
+    Dim ItemHeight As Int = 150dip ' Height of each grid item
+    Dim Gap As Int = 5dip ' Gap between items
+    Dim Columns As Int = 2 ' Number of columns in the grid
+    Dim LastKeyEvent As Long ' Track last key event for smooth scrolling
+    Dim SelectedItem As Int = -1 ' Track the currently selected item
+End Sub
 
-https://panel.smstv.live/player_api.php?username=smsdefaultapp&password=BRqrFDTnB4&&action=get_vod_streams&category_id=196
+Sub Activity_Create(FirstTime As Boolean)
+    ' Initialize ScrollView and Panel programmatically
+    ScrollView1.Initialize(0)
+    Activity.AddView(ScrollView1, 0, 0, 100%x, 100%y)
+
+    Panel1.Initialize("Panel1")
+    ScrollView1.Panel.AddView(Panel1, 0, 0, 100%x, 100%y)
+
+    CreateGrid(10) ' Create a grid with 10 items
+End Sub
+
+Sub CreateGrid(ItemCount As Int)
+    Panel1.RemoveAllViews ' Clear existing views
+    Panel1.Color = Colors.White ' Set panel background color
+
+    ' Calculate ItemWidth and ItemHeight based on screen size and columns
+    ItemWidth = (100%x - (Columns + 1) * Gap) / Columns
+    ItemHeight = ItemWidth ' Keep items square or adjust as needed
+
+    For i = 0 To ItemCount - 1
+        ' Calculate row and column position
+        Dim Row As Int = i / Columns
+        Dim Col As Int = i Mod Columns
+
+        ' Calculate position for the item
+        Dim Left As Int = Col * (ItemWidth + Gap) + Gap
+        Dim Top As Int = Row * (ItemHeight + Gap) + Gap
+
+        ' Create a new Panel for the grid item
+        Dim ItemPanel As Panel
+        ItemPanel.Initialize("ItemPanel")
+        ItemPanel.Color = Colors.LightGray
+        ItemPanel.SetLayout(Left, Top, ItemWidth, ItemHeight)
+        Panel1.AddView(ItemPanel)
+
+        ' Add a border to the item panel
+        Dim Border As ColorDrawable
+        Border.Initialize(Colors.Gray, 2dip) ' Border color and thickness
+        ItemPanel.Background = Border
+
+        ' Add a Label to the item panel
+        Dim Label1 As Label
+        Label1.Initialize("Label1")
+        Label1.Text = "Item " & (i + 1)
+        Label1.TextSize = 14
+        Label1.Gravity = Gravity.CENTER
+        Label1.Color = Colors.Transparent ' Transparent background for the label
+        ItemPanel.AddView(Label1, 0, 0, ItemWidth, ItemHeight)
+
+        ' Set Tag for item identification
+        ItemPanel.Tag = i
+    Next
+
+    ' Adjust the Panel height to fit all items
+    Dim Rows As Int = Ceil(ItemCount / Columns)
+    Panel1.Height = Rows * (ItemHeight + Gap) + Gap
+End Sub
+
+Sub ClearGrid
+    ' Clear all grid items
+    Panel1.RemoveAllViews
+    Panel1.Height = 0 ' Reset panel height
+    SelectedItem = -1 ' Reset selected item
+End Sub
+
+Sub Activity_KeyPress (KeyCode As Int) As Boolean
+    ' Detect Android TV remote key events
+    If DateTime.Now - LastKeyEvent < 200 Then Return True ' Debounce key events
+    LastKeyEvent = DateTime.Now
+
+    Select KeyCode
+        Case KeyCodes.KEYCODE_DPAD_UP
+            ' Move selection up
+            If SelectedItem >= Columns Then
+                SelectedItem = SelectedItem - Columns
+                UpdateSelection()
+                SmoothScrollToItem(SelectedItem)
+            End If
+            Return True
+        Case KeyCodes.KEYCODE_DPAD_DOWN
+            ' Move selection down
+            If SelectedItem + Columns < Panel1.NumberOfViews Then
+                SelectedItem = SelectedItem + Columns
+                UpdateSelection()
+                SmoothScrollToItem(SelectedItem)
+            End If
+            Return True
+        Case KeyCodes.KEYCODE_DPAD_LEFT
+            ' Move selection left
+            If SelectedItem > 0 Then
+                SelectedItem = SelectedItem - 1
+                UpdateSelection()
+                SmoothScrollToItem(SelectedItem)
+            End If
+            Return True
+        Case KeyCodes.KEYCODE_DPAD_RIGHT
+            ' Move selection right
+            If SelectedItem < Panel1.NumberOfViews - 1 Then
+                SelectedItem = SelectedItem + 1
+                UpdateSelection()
+                SmoothScrollToItem(SelectedItem)
+            End If
+            Return True
+        Case KeyCodes.KEYCODE_DPAD_CENTER, KeyCodes.KEYCODE_ENTER
+            ' Handle item selection (e.g., simulate a click)
+            If SelectedItem >= 0 Then
+                Dim ItemPanel As Panel = Panel1.GetView(SelectedItem)
+                Log("Selected item: " & ItemPanel.Tag)
+            End If
+            Return True
+    End Select
+
+    Return False ' Let the system handle other keys
+End Sub
+
+Sub UpdateSelection
+    ' Highlight the selected item
+    For i = 0 To Panel1.NumberOfViews - 1
+        Dim ItemPanel As Panel = Panel1.GetView(i)
+        If i = SelectedItem Then
+            ItemPanel.Color = Colors.Blue ' Highlight color
+        Else
+            ItemPanel.Color = Colors.LightGray ' Default color
+        End If
+    Next
+End Sub
+
+Sub SmoothScrollToItem(ItemIndex As Int)
+    ' Smoothly scroll to the selected item
+    Dim ItemPanel As Panel = Panel1.GetView(ItemIndex)
+    Dim ItemTop As Int = ItemPanel.Top
+    Dim ItemBottom As Int = ItemTop + ItemHeight
+
+    ' Check if the item is outside the visible area
+    If ItemTop < ScrollView1.ScrollPosition Then
+        ScrollView1.ScrollPosition = ItemTop - Gap ' Scroll up
+    Else If ItemBottom > ScrollView1.ScrollPosition + ScrollView1.Height Then
+        ScrollView1.ScrollPosition = ItemBottom - ScrollView1.Height + Gap ' Scroll down
+    End If
+End Sub
